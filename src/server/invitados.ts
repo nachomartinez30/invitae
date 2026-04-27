@@ -7,7 +7,7 @@ import { invitados } from '../db/schema'
 const invitadoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
   apellido: z.string().min(1, 'El apellido es requerido'),
-  email: z.string().email('Email inválido'),
+  email: z.email('Email inválido'),
   telefono: z.string().optional(),
   confirmado: z.boolean().optional().default(false),
   notas: z.string().optional(),
@@ -17,24 +17,25 @@ export const getInvitados = createServerFn({ method: 'GET' }).handler(async () =
   return db.select().from(invitados).orderBy(invitados.creadoEn)
 })
 
+const idSchema = z.number()
+const actualizarInvitadoSchema = z.object({ id: z.number(), ...invitadoSchema.shape })
+
 export const getInvitado = createServerFn({ method: 'GET' })
-  .validator((id: number) => id)
+  .inputValidator(idSchema)
   .handler(async ({ data: id }) => {
     const [invitado] = await db.select().from(invitados).where(eq(invitados.id, id))
     return invitado ?? null
   })
 
 export const crearInvitado = createServerFn({ method: 'POST' })
-  .validator((data: z.infer<typeof invitadoSchema>) => invitadoSchema.parse(data))
+  .inputValidator(invitadoSchema)
   .handler(async ({ data }) => {
     const [invitado] = await db.insert(invitados).values(data).returning()
     return invitado
   })
 
 export const actualizarInvitado = createServerFn({ method: 'POST' })
-  .validator((data: { id: number } & z.infer<typeof invitadoSchema>) =>
-    z.object({ id: z.number() }).merge(invitadoSchema).parse(data),
-  )
+  .inputValidator(actualizarInvitadoSchema)
   .handler(async ({ data: { id, ...rest } }) => {
     const [invitado] = await db
       .update(invitados)
@@ -45,7 +46,7 @@ export const actualizarInvitado = createServerFn({ method: 'POST' })
   })
 
 export const eliminarInvitado = createServerFn({ method: 'POST' })
-  .validator((id: number) => id)
+  .inputValidator(idSchema)
   .handler(async ({ data: id }) => {
     await db.delete(invitados).where(eq(invitados.id, id))
     return { ok: true }
